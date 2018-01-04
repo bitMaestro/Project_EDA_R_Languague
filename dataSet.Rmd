@@ -1,0 +1,795 @@
+---
+title: <font color='grey' size='5em'>Prosper.com Data Set</font>
+author: <font color='#3333ff' size='2em'>Tarique Hasheem</font>
+date: <font color='#00FFFF' size='2em'>11/1/2017<font/>
+output: html_document
+---
+
+```{r setup, include=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(ggplot2)
+library(knitr)
+library(dplyr)
+library(tibble)
+
+```
+
+<font color=grey>
+
+## Load the Data
+
+Prosper is an online platform where people can request to borrow money and 
+investors can fund these requests.  Prosper manages the marketplace of both 
+borrowers and investors, determines credit guidelines, and keeps a percentage of 
+the revenue.  The data set contains 113,937 loans with 81 variables.
+
+There are many data points to analyze however I'm interested in causes for 
+delinquent and or charged off accounts?  Are there relationships between 
+variables to explain these derogatory accounts?  If so, what are they and can 
+they help mitigate future losses with more reliable borrowers?
+
+For those who are curious to know what specific variables we can work with, I've 
+taken the liberty to printing them out for your viewing pleasure alphabetically 
+in table() format.
+
+```{r echo=FALSE, warning=FALSE}
+df <- read.csv("prosperLoanData.csv")
+table(colnames(df))
+
+```
+
+## Univariate Plot Section
+
+After quickly playing with the data set I realized running summary(), na.omit, 
+sd(), var(), range(), and quantile() becomes real tedious so I created a 
+function, sumFun(), which executes everything just mentioned in a few words of 
+code.  If you care to see the construction of the function please reference the 
+data Set.Rmd file.
+
+#### Bar Plot of Loan Status
+
+Lets look at a at bar plot of Loan Status to see if the visual gives us anything
+we can sink out teeth into?
+
+```{r echo=FALSE, warning=FALSE}
+ggplot(df, aes(LoanStatus)) +
+  geom_bar() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_y_continuous(limits = c(0, 70000), breaks = seq(0, 70000, 5000))
+
+```
+
+The plot does show us completed and current loans are more frequent than
+derogatory items.  What's interesting is charge offs are more frequent than 
+defaults.  I had imagined far greater defaults and less charge offs through loan 
+work out's, lengthier terms, or forbearance agreements.  Good plot to get us
+started.
+
+
+#### Borrower APR
+
+Let's begin with running our sumFun() function to better understand interest 
+rates charged to borrowers.
+
+```{r echo=FALSE, warning=FALSE}
+# function code box
+sumFun <- function(arg) {
+  # function combines subset(df, !is.na()) and summary() into one
+  col1 <- df[,c(arg)] # asign coloumn from datafram
+  col1a <- na.omit(col1) # omit all NA values
+
+  print(summary(col1a))
+  print(paste("Standard Deviation", round(sd(col1a, na.rm = TRUE), 4)))
+  print(paste("Variance", round(var(col1a, na.rm = TRUE), 4)))
+  print(paste("Range", round(range(col1a, na.rm = TRUE), 4)))
+  print("Quantile:")
+  print(quantile(col1a, na.rm = TRUE))
+  
+}
+
+```
+
+
+
+Borrower APR Summary via sumFun() function.
+
+```{r echo=FALSE, warning=FALSE}
+sumFun('BorrowerAPR')
+
+```
+
+
+Okay, so we have a wide spectrum of interest rate charges.  Lets place the 
+interest rates in a table and break them up by 0.5 % increments.
+
+```{r echo=FALSE, warning=FALSE}
+borrowerAPR <- df$BorrowerAPR # callable variable for our BorrowerAPR column
+apr_breaks <- seq(.0065, .5200, by=.005) # breaking the range of interest rates by .005 increments or 0.5%
+apr_cut <- cut(borrowerAPR, apr_breaks) # this will palce the interest rates in their respected breaks
+apr_freq <- table(apr_cut) # lets use a table() format to print our results
+apr_freq
+
+```
+
+The table helps but I want a visual to help me understand the distribution with a simple plot() function.  
+
+```{r echo=FALSE, warning=FALSE}
+plot(apr_freq)
+```
+
+Much better!  We can see there is a normal distribution where majority of interest rates are between 14% and 26%.  We can double check by running quantile() on its own.
+
+```{r echo=FALSE, warning=FALSE}
+quantile(borrowerAPR, na.rm = TRUE)
+```
+
+#### Lower Credit Score Range Histogram
+
+Lets take a quick look at the distribution of the lower bound credit score ranges using a histogram plot.
+```{r echo=FALSE, warning=FALSE}
+ggplot(df, aes(CreditScoreRangeLower)) + 
+  geom_histogram(binwidth = 25) +
+  scale_x_continuous(limits = c(500, 850))
+```
+
+We see that most of the borrowers have credit scores above 650 and we do have
+a number of borrowers below 650 as well.
+
+#### Upper Credit Score Range Histogram
+
+```{r echo=FALSE, warning=FALSE}
+ggplot(df, aes(CreditScoreRangeUpper)) + 
+  geom_histogram(binwidth = 20) +
+  scale_x_continuous(limits = c(500, 850))
+```
+
+The distribution is different than for lower bound credit scores but one thing is
+for sure, prosper.com likes higher credit score borrower.
+
+
+#### Borrower Rate
+
+The difference between rate and APR is always part of due diligence for 
+borrowers deciding on financing options.  Even though in some situations APR 
+makes decisions extremely confusing.  Its always a good idea to understand if 
+the APR amortizes the cost associated with the loan throughout the entire term 
+or just the first year?  Simply put, fees for originating loans are only 
+collected once, at time of origination and they never reoccur.  In either event 
+its a good idea for us to understand how the consumer see's their cost.  Lets 
+look at the actual rate borrowers are quoted.
+
+Lets begin with a summary.
+
+```{r echo=FALSE, warning=FALSE}
+borrowerRate <- df$BorrowerRate
+
+sumFun("BorrowerRate")
+
+```
+
+No surprise here, the mean borrower rate is .1928 or 19.28% and the mean 
+borrower APR is 21.88%, a mean difference of 2.6%.  Now lets  look at a more 
+colorful histogram plot of borrower rate.
+
+```{r echo=FALSE, warning=FALSE}
+borrowerRate <- ggplot(df, aes(BorrowerRate))
+borrowerRate + geom_histogram(fill = 'green', color = 'purple', binwidth = .01) +
+  scale_x_continuous(limits = c(.05, .40), breaks = seq(.05, .40, .05)) +
+  scale_y_continuous(limits = c(0, 7000), breaks = seq(0, 7000, 500))
+```
+
+ 
+#### Lender Yield
+
+What good is interest if there's no yield.  Assuming Prosper is always on-top of 
+usury laws lets understand the amount of return or yields investors/ lenders can 
+anticipate?  Can this variable be used later in our analysis to paint a picture 
+for delinquent or charge off accounts?
+
+```{r echo=FALSE, warning=FALSE}
+sumFun('LenderYield')
+```
+
+It's obvious lender yields will correlate with borrower APR and rate.  And the 
+summary does not really tell us any more than we already knew, so for now we'll 
+leave this variable on the back burner.  Lets still plot it for us to have a 
+visual.
+
+```{r echo=FALSE, warning=FALSE}
+lenderYield <- ggplot(df, aes(LenderYield))
+lenderYield + geom_histogram(fill = '#9900cc', color = '#13001a', binwidth = .01) +
+  scale_x_continuous(limits = c(.05, .40), breaks = seq(.05, .40, .05)) +
+  scale_y_continuous(limits = c(0, 7000), breaks = seq(0, 7000, 500))
+```
+
+#### Estimated Loss
+
+We all know derogatory accounts will show up as a loss somewhere or another so 
+lets run a summary on estimated loss to see what's in store for us?
+
+Estimated Loss Summary
+
+```{r echo=FALSE, warning=FALSE}
+sumFun("EstimatedLoss")
+```
+
+The problem here, and I should have caught this earlier is that we are not sure 
+how these losses are calculated, in other words the mean estimated loss is 
+0.08031 but we're not sure if this is from total revenue, from lender yield, 
+from gross, or what?  This variable may come in handy later on but for now its 
+simply to vague. 
+
+Estimated Loss Histogram Plot
+
+```{r echo=FALSE, warning=FALSE}
+estimatedLoss <- ggplot(df, aes(EstimatedLoss))
+estimatedLoss + geom_histogram(fill = "#00ffff", color = "#004d4d", binwidth = .01) +
+  scale_x_continuous(limits = c(.004, .40), breaks = seq(.004, .40, .05)) +
+  scale_y_continuous(limits = c(0, 7000), breaks = seq(0, 7000, 500))
+
+```
+
+#### Loan Origination Amount
+
+The original loan amount will surely help us navigate our data set.  We've all 
+been there before, borrowing more than we’re comfortable with.  Will loan 
+amounts have an impact on understanding delinquencies?  Lets begin with running 
+a summary be ready to combine this variable with others in our exploration to 
+see what role loan amount play? 
+
+Loan Origination Amount Summary
+
+```{r echo=FALSE, warning=FALSE}
+sumFun("LoanOriginalAmount")
+```
+
+The loan amounts are reasonable amounts for borrowers considering debt 
+consolidation.  When reviewing Prosper.com this is a main reason for borrowers 
+seeking funding.  
+
+Loan Original Amount Histogram Plot
+
+```{r echo=FALSE, warning=FALSE}
+loanOriginal <- ggplot(df, aes(LoanOriginalAmount))
+loanOriginal + geom_histogram(fill = "#0099ff", color = "#004d4d", binwidth = 500) +
+  scale_x_continuous(limits = c(1000, 36000), breaks = seq(1000, 36000, 3000))
+
+```
+
+Its not the best looking distribution but it gives us an idea of the direction 
+of the tail.
+
+
+#### Debt to Income Ratio
+
+Debt to income ratio is a key variable when creditors and lenders decide on an 
+applicants request for funding.  Lets take a look at our summary.
+
+```{r echo=FALSE, warning=FALSE}
+sumFun("DebtToIncomeRatio")
+```
+
+We see we have outliers of 10.0100, there must be some sort of glitch, if we 
+move our decimal to the right two places these borrowers have 1,000% debt to 
+income ratio, very unlikely.  But why is it happening?
+
+Debt to Income Ratio Histogram Plot
+
+```{r echo=FALSE, warning=FALSE}
+debt2income <- ggplot(df, aes(DebtToIncomeRatio))
+debt2income + geom_histogram(fill = '#339933', color = '#13001a', binwidth = 0.1) +
+  scale_x_continuous(limits = c(.1, 1), breaks = seq(.1, 1, .05)) 
+  #scale_y_continuous(limits = c(0, 7000), breaks = seq(0, 7000, 500))
+```
+
+When we cut away the outliers the graph look reasonable.  More money loans 
+originated to borrowers with lower debt to income ratio's that higher ratios.
+
+## Univariate Analysis
+
+#### What are the structure of your data set?
+
+There are 113.9 thousand row’s of data and 81 features (variables).  
+
+Preliminary observations:
+
+* 21.88% - mean borrower APR
+* 19.28% - mean borrower rate
+* 18.27% - mean lender yield
+* 08.03% - mean estimated loss
+* $8,337 - mean original loan amount
+
+#### What are the main features of interest in your data set?
+
+The data set is fascinating and we can subset() and or select() so many 
+variables and dive deeper into our data set.  For now I'll lets focus on loan 
+status in particular derogatory accounts.
+
+#### What other features in the data set do you think will help support your 
+#### investigation into your features of interest?
+
+* Loan Status
+* Occupation
+* Revolving Credit Balance
+* Bank Card Utilization
+* Income Verifiable
+* Credit Score Range (Lower, Upper)
+
+
+#### Did you create any new variables from existing variables in the data set?
+
+Yes, and to be sure we're on the same page, below we have a new variable as the 
+frequency distribution for the LoanStatus variable.  My goal here is to better 
+understand the frequency of derogatory items such as charge offs and defaulted.
+
+```{r echo=FALSE, warning=FALSE}
+loanStatus <- df$LoanStatus # loanStatus column variable
+loanStatus.freq = table(loanStatus) # applies the table function
+
+# cbind will print the results in a column format
+cbind(loanStatus.freq)
+
+```
+
+#### Of the features investigated, were there any unusual distributions?  
+#### Did you perform any operations?  If so, why?
+
+The debt to income variable is interesting, there are over 200 debt to income 
+ratio of 10.  In other words the borrowers debt is 10 times greater than their 
+income.  This is unusually high.  The operation I performed was to better 
+understand the frequency distribution.
+
+## Bivariate Plots Section
+
+#### Loan Status vs Borrower APR
+
+Great, now lets look at two variables at the same time.  We'll begin with loan 
+status and borrower APR.  As we know from above loan status a categorical 
+variable and will play nicely with borrower APR when we plot.  Lets also print
+outliers for us to review.
+
+```{r echo=FALSE, warning=FALSE}
+# the funciton will return a boolean TRUE/FALSE for all values ina a variable
+# to determine outliers.
+
+is_outlier <- function(x) {
+  return(x < quantile(x, 0.25, na.rm = TRUE) - 1.5 * IQR(x, na.rm = TRUE) | 
+           x > quantile(x, 0.75, na.rm = TRUE) + 1.5 * IQR(x, na.rm = TRUE))
+}
+
+# we create new variable dat
+dat <- df %>% 
+  # we create a new coloumn named 'outlier' 
+  tibble::rownames_to_column(var="outlier") %>% 
+  # we group_by a variable we are interested in
+  group_by(LoanStatus) %>% 
+  # mutate will calcuate new values for our new column 'outliers'
+  # it will run the is_outlier function from above on a variable from the dataframe
+  mutate(is_outlier=ifelse(is_outlier(BorrowerAPR), BorrowerAPR, as.numeric(NA)))
+
+# filtering the oulier variable
+dat$outlier[which(is.na(dat$is_outlier))] <- as.numeric(NA)
+
+# plot the new variable 'dat' and print out outliers on the plot
+ggplot(dat, aes(BorrowerAPR, LoanStatus)) +
+  geom_boxplot(color = '#00FFFF', fill = 'blue', alpha=0.2, notch = TRUE,
+               notchwidth = 0.9, outliers.colour='red', outlier.fill='red',
+               outlier.size = 3) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  geom_text(aes(label=is_outlier),na.rm=TRUE,nudge_y=0.05)
+```
+
+It's a difficult plot to make out.  Lets reverses our axes for a better looking 
+plot. 
+
+```{r echo=FALSE, warning=FALSE}
+ggplot(dat, aes(LoanStatus, BorrowerAPR)) +
+  geom_boxplot(color = '#7FFFD4', fill = '#008080', alpha=0.7, notch = TRUE,
+               notchwidth = 0.9, outliers.colour='red', outlier.fill='red',
+               outlier.size = 3) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  geom_text(aes(label=is_outlier),na.rm=TRUE,nudge_y=0.05)
+```
+
+Much better.  We see the different loan status and outliers but still not a 
+clear picture.
+
+#### Credit Grade vs Borrower APR
+
+Lets see if credit grade has any affect on Borrower APR?  We'll print the 
+outliers as well.
+
+```{r echo=FALSE, warning=FALSE}
+dat2 <- df %>% 
+  tibble::rownames_to_column(var="outlier") %>% 
+  group_by(CreditGrade) %>% 
+  mutate(is_outlier=ifelse(is_outlier(BorrowerAPR), BorrowerAPR, as.numeric(NA)))
+
+dat2$outlier[which(is.na(dat$is_outlier))] <- as.numeric(NA)
+
+ggplot(dat2, aes(CreditGrade, BorrowerAPR)) +
+  geom_boxplot(color = '#00cc00') +
+  geom_text(aes(label=is_outlier),na.rm=TRUE,nudge_y=0.05, 
+            check_overlap = TRUE, size = 3) +
+  scale_y_continuous(limits = c(0, .55), breaks = seq(0, .55, .05)) 
+
+
+```
+
+Credit grade 'A' is peculiar.  After carefully reviewing the graph is seems that 
+AA is a higher credit grade than A however due to logic AA is alphabetically 
+graphed after A.  In other-words they are switched around and if you consider 
+the switch it seems lower credit grades have higher interest rates.
+
+
+#### Total Credit Lines Past 7 Years vs Loan Status
+
+Lets take a closer look at trade lines and loan status.  Can having more trade 
+lines affect delinquency?
+
+```{r echo=FALSE, warning=FALSE}
+
+dat3 <- df %>% 
+  tibble::rownames_to_column(var="outlier") %>% 
+  group_by(LoanStatus) %>% 
+  mutate(is_outlier=ifelse(is_outlier(TotalCreditLinespast7years), TotalCreditLinespast7years, as.numeric(NA)))
+
+dat3$outlier[which(is.na(dat$is_outlier))] <- as.numeric(NA)
+
+ggplot(dat3, aes(LoanStatus, TotalCreditLinespast7years)) +
+  geom_boxplot(color = '#ff3300', fill = '#66ff99', notch = FALSE) +
+  geom_text(aes(label=is_outlier),na.rm=TRUE,nudge_y=0.05, 
+            check_overlap = TRUE, size = 3) +
+  scale_y_continuous(limits = c(0, 150), breaks = seq(0, 150, 10)) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+
+```
+
+There might be something here.  It seems that the greater the amount of credit 
+trade lines the less borrowers are likely to default, once borrowers get above 
+75 trade lines.  This is good progress towards our analysis.
+
+#### Total Trades vs Loan Status
+
+```{r echo=FALSE, warning=FALSE}
+dat4 <- df %>% 
+  tibble::rownames_to_column(var="outlier") %>% 
+  group_by(LoanStatus) %>% 
+  mutate(is_outlier=ifelse(is_outlier(TotalTrades), TotalTrades, as.numeric(NA)))
+
+dat4$outlier[which(is.na(dat$is_outlier))] <- as.numeric(NA)
+
+ggplot(dat4, aes(LoanStatus, TotalTrades)) +
+  geom_boxplot(color = '#ff00ff', fill = '#ffff00', alpha=0.7, notch = TRUE,
+               notchwidth = 0.9, outlier.size = 1) +
+  geom_text(aes(label=is_outlier),na.rm=TRUE,nudge_y=0.05, 
+            check_overlap = TRUE, size = 3) +
+  scale_y_continuous(limits = c(0, 150), breaks = seq(0, 150, 10)) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+The graph above is even more promising for borrowers who historically have large 
+number of trade lines without limiting for number of years as the previous graph 
+showed.
+
+#### Revolving Credit Balance vs Loan Status
+
+
+
+Lets see if revolving credit card balances plays a role in defaults?
+
+```{r echo=FALSE, warning=FALSE}
+ ggplot(aes(LoanStatus, 
+            RevolvingCreditBalance), 
+        data = df) +
+  geom_jitter( alpha = .3)  + 
+  geom_boxplot( alpha = .5,color = 'blue')+ 
+  stat_summary(fun.y = "mean", 
+               geom = "point", 
+               color = "red", 
+               shape = 8, 
+               size = 4)  +scale_y_log10()+
+      theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+Borrowers with greater revolving balances tend to keep their good standings.  
+We'll keep these variables into consideration as we move along.
+
+## Bivariate Analysis
+
+#### Talk about some of the relationships.  How did the features of interest 
+#### vary with other features in the dataset?
+
+My goal is to better understand what variables or patterns play a role in 
+understanding borrower defaults.  I began with plotting 'LoanStatus' with 
+'BorrowerAPR' to see if we can determine if certain groups of interest rates 
+have greater defaults when compared to others.  On the second plot I kept the 
+variable 'BorrowerAPR' and but added 'CreditGrade' to see if there is some sort 
+of logic behind credit rating and APR.  Then I plotted 'LoanStatus' with 
+'TotalCreditLinesPast7years' and 'TotalTrades'.  The difference caps trade-lines 
+at 7 years and the later is a historical variable without limiting for specific 
+number of years.  The last plot keeps 'LoanStatus' and plots 
+'RevolvingCreditBalance'.  
+
+These features are different than others in the data set because they are more 
+granular in personal detail that make up a borrowers credit history which is a 
+direct reflection on interest rates. 
+
+#### Did you observe any interesting relatinships between the other features?
+
+The first couple of plots did not give us a whole lot to be excited about.   
+However as we plotted ‘LoanStatus’ against ‘TotalCreditLines’ there are reasons 
+to believe trade lines do play a role in default rates.  The greater the number 
+of trade-lines the least likely a borrower defaults.  This is especially the 
+case with borrower with 75 or greater historical trade-lines.
+
+#### What was the strongest relationship you found?
+
+The strongest relationship I found was between 'TotalTrades' and 'LoanStatus'.  
+It looks as if historically borrowers with greater than ~60 or so trade-lines 
+tend not to default when compared with borrowers with fewer trade lines. 
+
+## Multivariate Analysis
+
+Lets clear up some of the clutter and filter() 'Defaulted' | 'Chargedoff' 
+from our LoanStatus variable. 
+
+```{r echo=FALSE, warning=FALSE}
+# the filter will replace defaults <- df$LoanStatus == 'Defaulted' and defaults <- df[defaults,]
+filter_Defaulted.and.Chargedoff <- filter(df, LoanStatus == 'Defaulted' | LoanStatus == 'Chargedoff')
+head(filter_Defaulted.and.Chargedoff)
+```
+
+The new variable above looks great.  Now lets plot CreditScoreRangeUpper, 
+StateMonthlyIncome, and LoanStatus.
+
+```{r echo=FALSE, warning=FALSE}
+df$CreditScoreRangeUpper.bucket = cut(df$CreditScoreRangeUpper,
+                            c(0, 500, 600, 700, 800, 900))
+
+ggplot(aes(x =  (CreditScoreRangeUpper.bucket),
+           y = StatedMonthlyIncome ), 
+           data =subset( df, LoanStatus=='Defaulted'| LoanStatus== 'Chargedoff')) + 
+   geom_boxplot( aes(fill= LoanStatus))  +
+  scale_fill_brewer(type='seq',
+                   guide=guide_legend(title='Quality'))  +
+  ylim(0,2500)+
+          theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+It's a clean plot but it doesn't tell us much.  Let's use the dplyr package to 
+group our new variable by 'LoanStatus', 'StatedMonthlyIncome', 'TotalTrades', 
+'CreditScoreRangeUpper' and we'll calculate the mean and median for 
+'BorrowerAPR' into a new variable.  Lets print out a few rows to make sure all 
+is well.
+
+```{r echo=FALSE, warning=FALSE}
+groupBy_filter_Defaulted.and.Chargeoff <- filter_Defaulted.and.Chargedoff %>%
+  group_by(LoanStatus, StatedMonthlyIncome, TotalTrades, CreditScoreRangeUpper) %>%
+  summarise(BorrowerAPR.mean = mean(BorrowerAPR),
+            BorrowerAPR.median = median(BorrowerAPR),
+            n = n())
+
+head(groupBy_filter_Defaulted.and.Chargeoff)
+```
+
+Lets lot the new variable and see if we can build on our assumption from earlier 
+that borrowers with less than 60 trade lines are more likely to have defaults 
+and charge offs.  We'll run both log10 and coord_trans to see the visual 
+difference in our plots.
+
+```{r echo=FALSE, warning=FALSE}
+ggplot(groupBy_filter_Defaulted.and.Chargeoff, 
+       aes(BorrowerAPR.mean, TotalTrades, color = LoanStatus)) +
+  geom_point(alpha = 1 / 5) +
+  scale_y_log10()
+  
+```
+
+Our coord_trans plot.
+
+```{r echo=FALSE, warning=FALSE}
+ggplot(groupBy_filter_Defaulted.and.Chargeoff, 
+       aes(BorrowerAPR.mean, TotalTrades, color = LoanStatus)) +
+  geom_point(alpha = 1 / 5) +
+  coord_trans(y = 'sqrt') 
+```
+
+Here is the same three variables but with an added elipsed layer.
+
+```{r echo=FALSE, warning=FALSE}
+
+ggplot(aes(BorrowerAPR, TotalTrades, color = LoanStatus),
+       data =subset( df, LoanStatus=='Defaulted'| LoanStatus== 'Chargedoff') ) +
+  geom_point(alpha=0.1) +
+  stat_ellipse(size=1)
+```
+
+
+
+Now lets plot our new variable but change the our x-axis to 
+'CreditScoreRangeUpper'.
+
+```{r echo=FALSE, warning=FALSE}
+ggplot(groupBy_filter_Defaulted.and.Chargeoff, 
+       aes(CreditScoreRangeUpper, TotalTrades, color = LoanStatus)) +
+  geom_point() +
+  scale_x_continuous(limits = c(550, 900), breaks = seq(550, 900, 50))
+```
+
+The plot above seems over plotted, lets revise is below.
+
+```{r echo=FALSE, warning=FALSE}
+ggplot(subset(df,LoanStatus == 'Defaulted' | LoanStatus == 'Chargedoff'), 
+       aes(factor(CreditScoreRangeUpper), TotalTrades, fill = LoanStatus)) +
+  geom_boxplot() +
+          theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  ylim(0,60)
+```
+
+Much better.  We see that borrowers above 60 or so trade lines have fewer
+delinquencies or charge offs.
+
+#### BorrowerAPR, CreditGrade, LoanStatu
+
+Lets take a slight detour here and look at box plots.  Here we'll plot Credit
+Grade, BorrowerAPR, and LoanStatus.
+
+
+```{r}
+dat4 <- df %>% 
+  tibble::rownames_to_column(var="outlier") %>% 
+  group_by(CreditGrade) %>% 
+  mutate(is_outlier=ifelse(is_outlier(BorrowerAPR), BorrowerAPR, as.numeric(NA)))
+
+dat2$outlier[which(is.na(dat$is_outlier))] <- as.numeric(NA)
+
+ggplot(aes(CreditGrade, BorrowerAPR), data = subset(dat4, LoanStatus == 'Defaulted' | LoanStatus == 'Chargedoff')) +
+  geom_boxplot(color = '#00cc00') +
+  geom_text(aes(label=is_outlier, colour = LoanStatus),na.rm=TRUE,nudge_y=0.05, 
+            check_overlap = TRUE, size = 3) +
+  scale_y_continuous(limits = c(0, .55), breaks = seq(0, .55, .05)) 
+```
+
+The plot is a little crowded.  Lets see if we can revise it.
+
+```{r}
+ggplot(aes(ProsperRating..Alpha., BorrowerAPR, fill=LoanStatus), data = 
+         subset(df, LoanStatus == 'Defaulted' | LoanStatus == 'Chargedoff')) +
+  geom_boxplot() +
+  scale_y_continuous(limits = c(0, .55), breaks = seq(0, .55, .05))
+```
+
+That's nice.  We see where our outliers are within each credit grade tier.
+
+
+#### Talk about some of the relationships you observed in this part of the \ 
+#### investigation. Were there features that strengthened each other in terms 
+#### of \ looking at your feature(s) of interest?
+
+I created a new variable using the filter() method to clear up the clutter from 
+the original data frame and in particular the ‘LoanStatus’ variable.  This 
+variable had 12 different categories so it was a good idea.  Our new filtered 
+variable was still too cumbersome so I took advantage of the group_by() method 
+in dplyr to only look at LoanStatus, StatedMonthlyIncome, TotalTrades, 
+CreditScoreRangeUpper and summarized the mean and median for BorrowerAPR.  The 
+importance of this process was it allowed me to isolate the features explicitly 
+to look and allowed a more granular look at the remainder of my analysis.   
+
+### Were there any interesting or surprising interactions between features?
+
+Yes there are a number of surprising interactions.  We see that at an alpha of 
+1/10 there are distinct vertical lines in the BorrwerAPR.mean axis.  In other 
+words there are noticeable amounts of defaulted and charged off loans at 
+approximately .30, .36 and .37 BorrowerAPR.mean and interestingly enough these 
+lines fade once borrowers reach 60 trade lines.  
+
+## Final Plot and Summary
+
+#### Plot One
+
+```{r echo=FALSE, warning=FALSE}
+
+ggplot(groupBy_filter_Defaulted.and.Chargeoff,
+       aes(BorrowerAPR.mean, TotalTrades, color = LoanStatus)) +
+  geom_point(alpha = 1 / 10) +
+  coord_trans(y = 'sqrt') +
+  scale_x_continuous(breaks = seq(.05, .50, .05)) +
+  scale_y_continuous(limit = c(0, 90), breaks = seq(0, 90, 10)) +
+  labs(color = 'Loan Status', y = 'Number of Trade Lines', 
+       x = 'Mean of Borrower APR in %', 
+       title = 'Loan Status in Relation to Borrower APR and Number of Trade Lines') +
+  stat_ellipse(size=1)
+  
+  
+```
+
+
+#### Description
+
+The reason why I choose the plot above is because it shows two interesting finds.  
+First, its shows that borrowers with 60 or greater trade lines are less likely 
+to go into default or charge off status.  Second, we notice three defined 
+vertical lines that suggest borrowers paying above 30% APR are more likely to 
+go into default and charge off status.  
+
+#### Plot two
+
+
+```{r}
+ggplot(subset(df,LoanStatus == 'Defaulted' | LoanStatus == 'Chargedoff'), 
+       aes(factor(CreditScoreRangeUpper), TotalTrades, fill = LoanStatus)) +
+  geom_boxplot() +
+          theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  ylim(0,60) +
+    labs(color = 'Loan Status', y = 'Number of Historic Trade Lines Open', 
+       x = 'Upper Credit Score Range', 
+       title = 'Loan Status in Relation to Loan Status and Trade Lines')
+```
+
+
+#### Description
+
+We see our median trade lines are about 30 and outliers in the 60 range.  
+We also notice defaults and charge offs are common among all credit profiles.  
+What is interested and to our point is that there are not a whole lot of 
+outliers above 60 therefore borrowers with 60 plus trade lines would seem to 
+be less riskier.
+
+
+#### Plot three
+
+```{r echo=FALSE, warning=FALSE}
+
+lenderYield <- ggplot(df, aes(LenderYield))
+lenderYield + geom_histogram(fill = '#9900cc', color = '#13001a', binwidth = .01) +
+  scale_x_continuous(limits = c(.05, .40), breaks = seq(.05, .40, .05)) +
+  scale_y_continuous(limits = c(0, 7000), breaks = seq(0, 7000, 500)) +
+  labs(x="Lender Yield %", y="Number of Loans Originated", 
+       title = "Lender Yield in Relation to Number of Loans Originated")
+```
+
+#### Description
+
+Whats interested about the plot above is that we see a spike of number of loans 
+originated where the lender yield is slightly above 30%.  As we saw in plot one 
+These are the borrowers who visually have more defaults and charge offs.  
+
+## Refelction
+
+#### What were some of the struggles that you went through?
+
+Plotting on the correct axes was a challenge at first especially when 
+categorical and continuous variables were being plotted.   I also did not enjoy 
+running summaries and different numerical measures such as range(), then I 
+created the sumFun() function and this helped repeating the same lines of code 
+over and over. 
+
+#### What went well?
+
+Describing the plots went well.  Labeling the axes, title, and legends was fun 
+and rewarding knowing the plot was finally complete.
+
+#### What was surprising?
+
+What was surprising borrowers who have greater than 60 trade lines have fewer 
+defaults and charge offs.  Its a surprise because credit score was not much of 
+a factor here.  People on both ends of the credit spectrum (high and low scores)
+performed better when they had 60 or more trade lines.
+
+#### Insight on Future Work?
+
+The data set is rich with variables.  You can spend months analyzing different 
+variables and their relation with one another.  I’d be interested in diving 
+deeper to sort through each variable in relation to loan status.  I’m sure there
+are more variables other than trade lines that can help us better understand 
+borrower patterns into default and charge offs.
+
+<br><br>
+<br><br>
+<br><br>
+<br><br>
+
+</font>
