@@ -1,9 +1,7 @@
 
 ### EDA with R
 
-#### Project Overview
-
-In this project, you will use R and apply exploratory data analysis techniques to explore relationships in one variable to multiple variables and to explore a selected data set for distributions, outliers, and anomalies.
+Explored the prosoper.com dataset using the R Programming Language and exploratory data analysis techniques. My objective was to examine both single and multivariate variables to explore relationships. The question I sought to understand is if there are relationships between borrowers who pay off their installments and those who are charged off. To my surprise borrowers with lengthier credit histories and greater than 60 tradelines tend to pay off their payments compared to their counterparts. The R Programing Language is rich in features and ggplot makes plotting such a breeze.
 
 #### Why this Project?
 
